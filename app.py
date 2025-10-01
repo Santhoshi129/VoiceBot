@@ -6,7 +6,7 @@ from gtts import gTTS
 import tempfile
 
 # 🔑 API Key is stored securely in Streamlit Secrets
-openai.api_key = st.secrets[""OPENAI_API_KEY""]
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 st.set_page_config(page_title="VoiceBot Demo", page_icon="🎤", layout="centered")
 st.title("🎤 VoiceBot Demo")
@@ -45,3 +45,4 @@ st.write("### Conversation")
 for msg in st.session_state["messages"]:
     role = "🧑 You" if msg["role"] == "user" else "🤖 VoiceBot"
     st.write(f"**{role}:** {msg['content']}")
+
