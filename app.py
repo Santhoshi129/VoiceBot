@@ -1,4 +1,5 @@
 import streamlit as st
+import numpy as np
 from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
 import av
 import speech_recognition as sr
@@ -113,4 +114,5 @@ webrtc_streamer(
 # --- SHOW TRANSCRIPT ---
 st.subheader("Transcript")
 st.write(st.session_state["transcript"])
+
 
