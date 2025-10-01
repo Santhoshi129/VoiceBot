@@ -1,6 +1,6 @@
 # app.py
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings
+from streamlit_webrtc import webrtc_streamer, WebRtcMode
 import queue
 import threading
 import numpy as np
@@ -22,9 +22,6 @@ audio_queue = queue.Queue()
 # -------------------------
 # WEBRTC CONFIG
 # -------------------------
-WEBRTC_CLIENT_SETTINGS = ClientSettings(
-    media_stream_constraints={"audio": True, "video": False}
-)
 
 def audio_callback(frame: av.AudioFrame):
     pcm = frame.to_ndarray()
@@ -33,14 +30,13 @@ def audio_callback(frame: av.AudioFrame):
 
 webrtc_ctx = webrtc_streamer(
     key="voicebot",
-    mode=WebRtcMode.SENDRECV,
-    client_settings=WEBRTC_CLIENT_SETTINGS,
+     mode=WebRtcMode.SENDRECV,
+    media_stream_constraints={"audio": True, "video": False},  # Pass constraints directly
     audio_receiver_size=1024,
-    video_frame_callback=None,
     audio_frame_callback=audio_callback,
     async_processing=True,
 )
-
+  
 # -------------------------
 # SESSION STATE
 # -------------------------
@@ -181,3 +177,4 @@ if "tts_message" in st.session_state:
         window.speechSynthesis.speak(msg);
         </script>
     """, height=0)
+
