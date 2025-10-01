@@ -9,7 +9,7 @@ import openai
 # --- Config ---
 st.set_page_config(page_title="Subhasya's Voice Assistant", page_icon="🌸", layout="centered")
 
-AVATAR = "animated_gif.jpg"  # animated avatar file
+AVATAR = "animated_gif.jpg"
 INTRO = (
     "Hello! I am Subhasya’s personal assistant 🌸. "
     "You can ask me about her life story, superpower, growth areas, misconceptions, "
@@ -54,7 +54,7 @@ def match_response(user_text: str) -> str:
             return RESPONSES[key]
     return RESPONSES["default"]
 
-# --- Custom CSS for styling ---
+# --- Custom CSS for chat bubbles ---
 st.markdown("""
 <style>
 .chat-bubble-user {
@@ -97,22 +97,21 @@ with col2:
 st.write("---")
 st.subheader("🎤 Start a Conversation")
 
-# --- Mic Recorder ---
+# --- Mic Recorder (without as_wav) ---
 audio = mic_recorder(
     start_prompt="🎙️ Start Recording",
     stop_prompt="⏹️ Stop",
-    as_wav=True,
     key="recorder"
 )
 
 if audio:
-    wav_data = audio.get("bytes") or audio.get("wav_data")
+    wav_data = audio.get("bytes")  # older versions return "bytes"
 
     if wav_data:
         st.audio(wav_data, format="audio/wav")
 
         try:
-            # 1. Transcribe
+            # 1. Transcribe with Whisper
             user_text = transcribe_audio(wav_data)
             st.markdown(f'<div class="chat-bubble-user">You: {user_text}</div>', unsafe_allow_html=True)
 
