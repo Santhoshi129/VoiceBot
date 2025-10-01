@@ -1,143 +1,115 @@
 import streamlit as st
-import openai
-import base64
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, WebRtcMode
+import av
+import speech_recognition as sr
+from gtts import gTTS
 import tempfile
+import os
+from openai import OpenAI
 
-# -----------------------------
-# Page config
-# -----------------------------
-st.set_page_config(
-    page_title="Subhasya's Voice Assistant",
-    page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="Voice Assistant", page_icon="🎙", layout="centered")
+
+# --- HEADER / AVATAR ---
+st.image("animated_avatar.jpg", width=250)
+st.markdown(
+    """
+    <h1 style='text-align: left;'>Hello, welcome!</h1>
+    <p style='font-size:18px;'>Hey! This is Subhasya's personal assistant. 
+    Click the <b>Speak</b> button below and ask anything about her life, strengths, or growth journey —
+    I’ll respond as Subhasya in voice and text.</p>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.markdown("""
-<style>
-body {
-    background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
-    font-family: 'Segoe UI', sans-serif;
-}
-button {
-    background-color: #4CAF50;
-    color: white;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
+# --- STATE ---
+if "transcript" not in st.session_state:
+    st.session_state["transcript"] = ""
 
-# -----------------------------
-# Load API key
-# -----------------------------
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+# --- OPENAI CLIENT ---
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# -----------------------------
-# Predefined answers
-# -----------------------------
-predefined_answers = {
-    "life story": "I'm Subhasya Santhoshi, an AI and Data Science expert from India. I design and deploy conversational AI, chatbots, and voicebots.",
-    "superpower": "My superpower is designing intelligent AI systems that transform business processes and provide actionable insights.",
-    "growth areas": "I want to advance in Generative AI, cloud AI deployment, and building scalable conversational systems.",
-    "misconceptions": "Some people may think I'm quiet, but I’m very engaged and collaborative in projects.",
-    "push boundaries": "I challenge myself with new technologies and complex projects to grow both technically and professionally."
-}
+def get_ai_reply(user_text: str) -> str:
+    """Generate assistant reply as if Subhasya is answering in first person."""
+    prompt = f"""
+    You are Subhasya's personal assistant. 
+    Always answer in first person as if you are Subhasya herself. 
+    Be warm, reflective, and authentic. 
 
-# -----------------------------
-# Helper functions
-# -----------------------------
-def get_bot_response(user_input):
-    lower_input = user_input.lower()
-    for key in predefined_answers:
-        if key in lower_input:
-            return predefined_answers[key]
-    response = openai.ChatCompletion.create(
+    User asked: {user_text}
+    """
+    response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are Subhasya Santhoshi's personal AI assistant. Speak in a friendly, professional, and lively tone."},
-            {"role": "user", "content": user_input}
-        ]
+        messages=[{"role": "system", "content": "You are Subhasya."},
+                  {"role": "user", "content": prompt}],
+        max_tokens=150,
     )
-    return response.choices[0].message['content']
+    return response.choices[0].message.content.strip()
 
-def text_to_speech_oa(text):
-    """Generate speech using OpenAI TTS"""
-    audio_response = openai.audio.speech.create(
-        model="gpt-4o-mini-tts",
-        voice="alloy",
-        input=text
-    )
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    temp_file.write(audio_response.read())
-    temp_file.flush()
-    return temp_file.name
 
-# -----------------------------
-# Avatar & Greeting
-# -----------------------------
-st.image("animated_gif.jpg", width=300)  # Replace with your GIF
-st.title("Hello, welcome!")
-st.write("Hey! This is Subhasya's personal assistant. Click the 'Speak' button below and ask anything about her — I’ll respond in voice.")
+# --- AUDIO PROCESSOR ---
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.recognizer = sr.Recognizer()
 
-# -----------------------------
-# HTML + JS microphone recorder
-# -----------------------------
-st.markdown("""
-<button onclick="startRecording()">🎤 Speak</button>
-<script>
-let mediaRecorder;
-let audioChunks = [];
+    def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
+        audio = frame.to_ndarray().flatten().astype("int16").tobytes()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+            tmpfile.write(audio)
+            tmp_filename = tmpfile.name
 
-function startRecording() {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-    .then(stream => {
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.start();
-        audioChunks = [];
-        mediaRecorder.ondataavailable = e => { audioChunks.push(e.data); };
-        mediaRecorder.onstop = e => {
-            let blob = new Blob(audioChunks, { type: 'audio/wav' });
-            let reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend = function() {
-                let base64data = reader.result;
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.id = 'audio_data';
-                input.value = base64data;
-                document.body.appendChild(input);
-                const event = new Event('audioCaptured');
-                document.dispatchEvent(event);
-            }
-        };
-        setTimeout(() => mediaRecorder.stop(), 5000);  // 5s max recording
-    });
-}
-</script>
-""", unsafe_allow_html=True)
+        try:
+            with sr.AudioFile(tmp_filename) as source:
+                audio_data = self.recognizer.record(source)
+                user_text = self.recognizer.recognize_google(audio_data)
 
-# -----------------------------
-# Listen for audio event
-# -----------------------------
-audio_data = st.experimental_get_query_params().get("audio_data")
+                # --- AI Reply ---
+                reply = get_ai_reply(user_text)
 
-if audio_data:
-    audio_base64 = audio_data[0].split(",")[1]
-    audio_bytes = base64.b64decode(audio_base64)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-        f.write(audio_bytes)
-        f.flush()
-        # Transcribe using Whisper
-        audio_file = open(f.name, "rb")
-        transcript = openai.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file
-        )
-        user_text = transcript.text
-        st.write(f"You said: {user_text}")
+                # --- Store transcript ---
+                st.session_state["transcript"] += f"\nUser: {user_text}"
+                st.session_state["transcript"] += f"\nSubhasya: {reply}"
 
-        # Bot response
-        bot_response = get_bot_response(user_text)
-        audio_file = text_to_speech_oa(bot_response)
-        st.audio(audio_file)
+                # --- Voice Reply ---
+                tts = gTTS(reply)
+                tts_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+                tts.save(tts_file.name)
+                st.audio(tts_file.name, format="audio/mp3")
 
+        except Exception as e:
+            st.warning(f"Speech recognition failed: {e}")
+
+        finally:
+            if os.path.exists(tmp_filename):
+                os.remove(tmp_filename)
+
+        return frame
+
+
+# --- SPEAK BUTTON / WEBRTC ---
+st.markdown(
+    """
+    <style>
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 18px;
+        font-weight: bold;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+webrtc_streamer(
+    key="speech-to-speech",
+    mode=WebRtcMode.SENDONLY,
+    audio_processor_factory=AudioProcessor,
+    media_stream_constraints={"audio": True, "video": False},
+)
+
+# --- SHOW TRANSCRIPT ---
+st.subheader("Transcript")
+st.write(st.session_state["transcript"])
