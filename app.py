@@ -1,7 +1,4 @@
-# Streamlit Voice Bot for Subhasya Santhoshi
-
 import streamlit as st
-from streamlit_chat import message
 import openai
 import tempfile
 import sounddevice as sd
@@ -9,9 +6,9 @@ from scipy.io.wavfile import write
 import pyttsx3
 import os
 
-# -------------------
+# -----------------------
 # Page configuration
-# -------------------
+# -----------------------
 st.set_page_config(
     page_title="Subhasya's Voice Bot",
     page_icon="🤖",
@@ -34,39 +31,41 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------
-# OpenAI API Key
-# -------------------
+# -----------------------
+# Load secrets
+# -----------------------
 openai.api_key = st.secrets["OPENAI_API_KEY"]
+MODEL_NAME = st.secrets.get("OPENAI_MODEL", "gpt-4o-mini")
+RECORD_DURATION = int(st.secrets.get("RECORD_DURATION", 5))
+VOICE_RATE = int(st.secrets.get("VOICE_RATE", 160))
+VOICE_VOLUME = float(st.secrets.get("VOICE_VOLUME", 1.0))
 
-# -------------------
-# Intro
-# -------------------
+# -----------------------
+# Introduction
+# -----------------------
 st.title("Hi, I’m Subhasya 👋")
-st.write("I’m an AI & Data Science expert. Let’s start the conversation! Ask me anything about my background, skills, or projects.")
+st.write("I’m an AI & Data Science expert. Ask me anything about my career, skills, projects, or AI expertise.")
 
-# -------------------
+# -----------------------
 # Preloaded Questions & Answers
-# -------------------
+# -----------------------
 preloaded_answers = {
     "life story": (
         "I’m Subhasya Santhoshi, an AI and Data Science expert from India. "
-        "I’ve designed and deployed conversational AI, chatbots, and voicebots using Dialogflow and cloud-based platforms. "
+        "I’ve designed and deployed conversational AI, chatbots, and voicebots using Dialogflow and cloud platforms. "
         "I enjoy solving real-world problems using AI and collaborating with teams to deliver impactful solutions."
     ),
     "superpower": (
-        "My superpower is designing and deploying intelligent AI systems that transform business processes. "
-        "I can translate complex technical solutions into actionable insights that make a difference."
+        "My superpower is designing intelligent AI systems that transform business processes and provide actionable insights."
     ),
     "growth areas": (
-        "I am focusing on advancing my skills in Generative AI, cloud-based AI deployment, and building scalable conversational systems. "
-        "I also aim to enhance my project management and cross-functional collaboration abilities."
+        "I want to advance in Generative AI, cloud AI deployment, and building scalable conversational systems."
     ),
     "misconceptions": (
-        "Some people may think I’m quiet at first, but I’m actually very engaged and collaborative when working on AI and data projects."
+        "Some people may think I’m quiet, but I’m actually very engaged and collaborative in projects."
     ),
     "push boundaries": (
-        "I constantly challenge myself with new projects, emerging AI technologies, and innovative workflows to push both my technical and professional limits."
+        "I challenge myself with new technologies and complex projects to grow both technically and professionally."
     )
 }
 
@@ -78,31 +77,28 @@ example_questions = [
     "How do you push your boundaries and limits?"
 ]
 
-# -------------------
-# Function to convert text to speech
-# -------------------
+# -----------------------
+# Functions
+# -----------------------
 def speak_text(text):
+    """Convert text to speech using pyttsx3"""
     engine = pyttsx3.init()
-    engine.setProperty('rate', 160)
+    engine.setProperty('rate', VOICE_RATE)
+    engine.setProperty('volume', VOICE_VOLUME)
     engine.say(text)
     engine.runAndWait()
 
-# -------------------
-# Function to record audio
-# -------------------
-def record_audio(duration=5, fs=44100):
-    st.info("Recording for 5 seconds... Speak now!")
+def record_audio(duration=RECORD_DURATION, fs=44100):
+    """Record audio from microphone"""
+    st.info(f"Recording for {duration} seconds... Speak now!")
     recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
     sd.wait()
     file_path = tempfile.mktemp(suffix=".wav")
     write(file_path, fs, recording)
     return file_path
 
-# -------------------
-# Function to handle user input and generate bot response
-# -------------------
 def get_bot_response(user_input):
-    # Check for preloaded answers
+    """Return bot response based on preloaded answers or GPT"""
     lower_input = user_input.lower()
     if "life story" in lower_input or "about you" in lower_input:
         return preloaded_answers["life story"]
@@ -115,37 +111,37 @@ def get_bot_response(user_input):
     elif "push" in lower_input or "boundaries" in lower_input:
         return preloaded_answers["push boundaries"]
     else:
-        # Use GPT for any other question in your tone
+        # GPT response for any other input
         response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",
+            model=MODEL_NAME,
             messages=[
-                {"role": "system", "content": "You are Subhasya Santhoshi's personal voice bot. Answer in friendly, professional, and approachable tone, reflecting Subhasya's background in AI, data science, and conversational AI."},
+                {"role": "system", "content": "You are Subhasya Santhoshi's personal AI voice bot. Answer in friendly, professional, and approachable tone."},
                 {"role": "user", "content": user_input}
             ]
         )
         return response.choices[0].message['content']
 
-# -------------------
-# Main interaction
-# -------------------
+# -----------------------
+# Main App
+# -----------------------
 if st.button("🎤 Record", key="record", help="Click to record your question"):
-    audio_file = record_audio(duration=5)
+    audio_file = record_audio(duration=RECORD_DURATION)
     
-    # Transcribe audio using OpenAI Whisper
+    # Transcribe using OpenAI Whisper
     with open(audio_file, "rb") as f:
         transcript = openai.Audio.transcriptions.create(file=f, model="whisper-1")
     user_input = transcript['text']
     
-    message(user_input, is_user=True)
+    st.markdown(f"**You:** {user_input}")
     
     bot_answer = get_bot_response(user_input)
-    message(bot_answer, is_user=False)
+    st.markdown(f"**Subhasya Bot:** {bot_answer}")
     
     speak_text(bot_answer)
 
-# -------------------
+# -----------------------
 # Show example questions
-# -------------------
+# -----------------------
 st.subheader("Example questions you can ask:")
 for q in example_questions:
     st.write(f"- {q}")
