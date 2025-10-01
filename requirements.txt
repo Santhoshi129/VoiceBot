@@ -1,6 +1,12 @@
-streamlit==1.25.0
-openai==1.6.0
-pydub==0.25.1
+streamlit
+streamlit-webrtc
+av
+speechrecognition
+gTTS
+pydub
+openai
+
+
 
 
 
