@@ -1,6 +1,5 @@
 streamlit
 gTTS
-openai == 0.28
 streamlit-mic-recorder
-
-
+transformers
+torch
