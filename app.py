@@ -5,6 +5,7 @@ import streamlit as st
 from gtts import gTTS
 from streamlit_mic_recorder import mic_recorder
 from transformers import pipeline
+import soundfile as sf
 
 # --- Config ---
 st.set_page_config(page_title="Subhasya's Voice Assistant", page_icon="🌸", layout="centered")
@@ -26,16 +27,17 @@ RESPONSES = {
     "default": "That’s a wonderful question! Subhasya is always learning and evolving."
 }
 
-# --- Load free Whisper model (CPU friendly) ---
+# --- Load free Whisper tiny model ---
 @st.cache_resource
-def load_stt():
+def load_asr():
     return pipeline("automatic-speech-recognition", model="openai/whisper-tiny.en")
 
-asr = load_stt()
+asr = load_asr()
 
 # --- Helpers ---
 def tts_bytes(text: str) -> bytes:
-    tts = gTTS(text, lang="en", tld="co.in")  # Indian English
+    """Generate Indian English female voice with gTTS."""
+    tts = gTTS(text, lang="en", tld="co.in")
     tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
     tts.save(tmp.name)
     with open(tmp.name, "rb") as f:
@@ -44,21 +46,24 @@ def tts_bytes(text: str) -> bytes:
     return data
 
 def transcribe_audio(wav_bytes: bytes) -> str:
+    """Transcribe speech with Hugging Face Whisper tiny."""
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.write(wav_bytes)
     tmp.flush()
-    result = asr(tmp.name)
+    audio, sr = sf.read(tmp.name)  # decode with soundfile (no ffmpeg needed)
     os.unlink(tmp.name)
+    result = asr({"array": audio, "sampling_rate": sr})
     return result["text"]
 
 def match_response(user_text: str) -> str:
+    """Match question keywords to predefined answers."""
     text = user_text.lower()
     for key in RESPONSES.keys():
         if key in text:
             return RESPONSES[key]
     return RESPONSES["default"]
 
-# --- Custom CSS for chat bubbles ---
+# --- CSS for chat bubbles ---
 st.markdown("""
 <style>
 .chat-bubble-user {
@@ -84,7 +89,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- UI ---
+# --- Session state for chat history ---
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
+
+# --- UI Header ---
 col1, col2 = st.columns([1, 2])
 with col1:
     if os.path.exists(AVATAR):
@@ -114,15 +123,15 @@ if audio:
         st.audio(wav_data, format="audio/wav")
 
         try:
-            # 1. Transcribe (offline Whisper)
+            # 1. Transcribe
             user_text = transcribe_audio(wav_data)
-            st.markdown(f'<div class="chat-bubble-user">You: {user_text}</div>', unsafe_allow_html=True)
+            st.session_state["messages"].append(("user", user_text))
 
-            # 2. Pick reply
+            # 2. Match response
             reply = match_response(user_text)
-            st.markdown(f'<div class="chat-bubble-assistant">Assistant: {reply}</div>', unsafe_allow_html=True)
+            st.session_state["messages"].append(("assistant", reply))
 
-            # 3. Speak back
+            # 3. Voice reply
             audio_bytes = tts_bytes(reply)
             st.audio(audio_bytes, format="audio/mp3")
 
@@ -131,3 +140,11 @@ if audio:
     else:
         st.warning("No audio captured. Please try again.")
 
+# --- Display Chat History ---
+st.write("---")
+st.subheader("💬 Conversation")
+for role, msg in st.session_state["messages"]:
+    if role == "user":
+        st.markdown(f'<div class="chat-bubble-user">You: {msg}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="chat-bubble-assistant">Assistant: {msg}</div>', unsafe_allow_html=True)
