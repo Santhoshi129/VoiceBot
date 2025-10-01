@@ -11,7 +11,7 @@ from openai import OpenAI
 st.set_page_config(page_title="Voice Assistant", page_icon="🎙", layout="centered")
 
 # --- HEADER / AVATAR ---
-st.image("animated_avatar.jpg", width=250)
+st.image("animated_gif.jpg", width=250)
 st.markdown(
     """
     <h1 style='text-align: left;'>Hello, welcome!</h1>
@@ -113,3 +113,4 @@ webrtc_streamer(
 # --- SHOW TRANSCRIPT ---
 st.subheader("Transcript")
 st.write(st.session_state["transcript"])
+
