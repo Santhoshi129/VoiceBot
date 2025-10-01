@@ -1,5 +1,6 @@
 # app.py
 import os
+import io
 import tempfile
 import streamlit as st
 from gtts import gTTS
@@ -45,15 +46,14 @@ def tts_bytes(text: str) -> bytes:
     os.unlink(tmp.name)
     return data
 
+
 def transcribe_audio(wav_bytes: bytes) -> str:
-    """Transcribe speech with Hugging Face Whisper tiny."""
-    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    tmp.write(wav_bytes)
-    tmp.flush()
-    audio, sr = sf.read(tmp.name)  # decode with soundfile (no ffmpeg needed)
-    os.unlink(tmp.name)
+    """Transcribe speech with Hugging Face Whisper tiny — decode properly with soundfile."""
+    audio_buffer = io.BytesIO(wav_bytes)
+    audio, sr = sf.read(audio_buffer)  # ✅ read directly from bytes in memory
     result = asr({"array": audio, "sampling_rate": sr})
     return result["text"]
+
 
 def match_response(user_text: str) -> str:
     """Match question keywords to predefined answers."""
@@ -148,3 +148,4 @@ for role, msg in st.session_state["messages"]:
         st.markdown(f'<div class="chat-bubble-user">You: {msg}</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div class="chat-bubble-assistant">Assistant: {msg}</div>', unsafe_allow_html=True)
+
