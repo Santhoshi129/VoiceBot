@@ -7,13 +7,13 @@ from streamlit_mic_recorder import mic_recorder
 import openai
 
 # --- Config ---
-st.set_page_config(page_title="Subhasya's Voice Assistant", page_icon="🎤", layout="centered")
+st.set_page_config(page_title="Subhasya's Voice Assistant", page_icon="🌸", layout="centered")
 
-AVATAR = "avatar_gif.jpg" 
+AVATAR = "animated_gif.jpg"  # animated avatar file
 INTRO = (
-    "Hello! I am Subhasya’s personal assistant. "
-    "You can ask me about her life story, superpower, growth areas, misconceptions, or how she pushes boundaries. "
-    "Just click the mic below and start speaking!"
+    "Hello! I am Subhasya’s personal assistant 🌸. "
+    "You can ask me about her life story, superpower, growth areas, misconceptions, "
+    "or how she pushes boundaries. Just click the mic below and start speaking!"
 )
 
 # --- Predefined lively answers ---
@@ -26,9 +26,8 @@ RESPONSES = {
     "default": "That’s a wonderful question! Subhasya is always learning and evolving."
 }
 
-# --- Helper functions ---
+# --- Helpers ---
 def tts_bytes(text: str) -> bytes:
-    """Generate Indian English female voice with gTTS."""
     tts = gTTS(text, lang="en", tld="co.in")
     tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
     tts.save(tmp.name)
@@ -38,7 +37,6 @@ def tts_bytes(text: str) -> bytes:
     return data
 
 def transcribe_audio(wav_bytes: bytes) -> str:
-    """Send audio to OpenAI Whisper and return text transcription."""
     openai.api_key = os.environ.get("OPENAI_API_KEY")
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.write(wav_bytes)
@@ -50,14 +48,39 @@ def transcribe_audio(wav_bytes: bytes) -> str:
     return transcript["text"]
 
 def match_response(user_text: str) -> str:
-    """Find best matching response for user input."""
     text = user_text.lower()
     for key in RESPONSES.keys():
         if key in text:
             return RESPONSES[key]
     return RESPONSES["default"]
 
-# --- UI Layout ---
+# --- Custom CSS for styling ---
+st.markdown("""
+<style>
+.chat-bubble-user {
+    background-color: #DCF8C6;
+    padding: 10px 15px;
+    border-radius: 20px;
+    max-width: 75%;
+    margin: 5px 0;
+    text-align: right;
+    margin-left: auto;
+    box-shadow: 0px 1px 3px rgba(0,0,0,0.1);
+}
+.chat-bubble-assistant {
+    background-color: #F1F0F0;
+    padding: 10px 15px;
+    border-radius: 20px;
+    max-width: 75%;
+    margin: 5px 0;
+    text-align: left;
+    margin-right: auto;
+    box-shadow: 0px 1px 3px rgba(0,0,0,0.1);
+}
+</style>
+""", unsafe_allow_html=True)
+
+# --- UI ---
 col1, col2 = st.columns([1, 2])
 
 with col1:
@@ -74,31 +97,34 @@ with col2:
 st.write("---")
 st.subheader("🎤 Start a Conversation")
 
-# --- Mic recorder ---
+# --- Mic Recorder ---
 audio = mic_recorder(
     start_prompt="🎙️ Start Recording",
     stop_prompt="⏹️ Stop",
-    just_once=True,
-    as_wav=True
+    as_wav=True,
+    key="recorder"
 )
 
 if audio:
-    st.audio(audio["bytes"], format="audio/wav")
-    st.markdown("**You spoke! Processing...**")
+    wav_data = audio.get("bytes") or audio.get("wav_data")
 
-    try:
-        # 1. Transcribe
-        user_text = transcribe_audio(audio["bytes"])
-        st.markdown(f"**You (transcribed):** {user_text}")
+    if wav_data:
+        st.audio(wav_data, format="audio/wav")
 
-        # 2. Find best response
-        reply = match_response(user_text)
-        st.markdown(f"**Assistant:** {reply}")
+        try:
+            # 1. Transcribe
+            user_text = transcribe_audio(wav_data)
+            st.markdown(f'<div class="chat-bubble-user">You: {user_text}</div>', unsafe_allow_html=True)
 
-        # 3. Voice output
-        audio_bytes = tts_bytes(reply)
-        st.audio(audio_bytes, format="audio/mp3")
+            # 2. Find best response
+            reply = match_response(user_text)
+            st.markdown(f'<div class="chat-bubble-assistant">Assistant: {reply}</div>', unsafe_allow_html=True)
 
-    except Exception as e:
-        st.error(f"Error: {e}")
+            # 3. Voice reply
+            audio_bytes = tts_bytes(reply)
+            st.audio(audio_bytes, format="audio/mp3")
 
+        except Exception as e:
+            st.error(f"Error during processing: {e}")
+    else:
+        st.warning("No audio captured. Please try again.")
