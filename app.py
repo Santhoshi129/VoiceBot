@@ -75,7 +75,7 @@ def text_to_speech_oa(text):
 # -----------------------------
 # Avatar & Greeting
 # -----------------------------
-st.image("animated_avatar.gif", width=300)  # Replace with your GIF
+st.image("animated_gif.jpg", width=300)  # Replace with your GIF
 st.title("Hello, welcome!")
 st.write("Hey! This is Subhasya's personal assistant. Click the 'Speak' button below and ask anything about her — I’ll respond in voice.")
 
@@ -140,3 +140,4 @@ if audio_data:
         bot_response = get_bot_response(user_text)
         audio_file = text_to_speech_oa(bot_response)
         st.audio(audio_file)
+
