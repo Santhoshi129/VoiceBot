@@ -9,7 +9,7 @@ from streamlit_mic_recorder import mic_recorder
 
 st.set_page_config(page_title="Subhasya's Voice Assistant", page_icon="🎤", layout="centered")
 
-AVATAR = "avatar.jpg"  # place Subhasya’s image here
+AVATAR = "avatar_gif.jpg"  # place Subhasya’s image here
 INTRO = (
     "Hello! I am Subhasya’s personal assistant. "
     "I can tell you about her life, superpowers, growth areas, and more. "
@@ -86,3 +86,4 @@ if audio:
 
     audio_bytes = tts_bytes(reply)
     st.audio(audio_bytes, format="audio/mp3")
+
