@@ -1,5 +1,5 @@
 streamlit
 gTTS
 streamlit-mic-recorder
-transformers
+transformers>=4.30.0
 torch
