@@ -3,3 +3,4 @@ gTTS
 streamlit-mic-recorder
 transformers>=4.30.0
 torch
+soundfile
