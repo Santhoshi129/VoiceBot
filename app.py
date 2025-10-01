@@ -105,7 +105,7 @@ st.markdown(
 )
 
 webrtc_streamer(
-    key="speech-to-speech",
+    key="voicebot",
     mode=WebRtcMode.SENDONLY,
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False},
@@ -114,5 +114,6 @@ webrtc_streamer(
 # --- SHOW TRANSCRIPT ---
 st.subheader("Transcript")
 st.write(st.session_state["transcript"])
+
 
 
