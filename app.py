@@ -1,12 +1,13 @@
 # app.py
 import os
 import io
+import numpy as np
 import tempfile
 import streamlit as st
 from gtts import gTTS
+from pydub import AudioSegment
 from streamlit_mic_recorder import mic_recorder
 from transformers import pipeline
-import soundfile as sf
 
 # --- Config ---
 st.set_page_config(page_title="Subhasya's Voice Assistant", page_icon="🌸", layout="centered")
@@ -47,11 +48,13 @@ def tts_bytes(text: str) -> bytes:
     return data
 
 
-def transcribe_audio(wav_bytes: bytes) -> str:
-    """Transcribe speech with Hugging Face Whisper tiny — decode properly with soundfile."""
-    audio_buffer = io.BytesIO(wav_bytes)
-    audio, sr = sf.read(audio_buffer)  # ✅ read directly from bytes in memory
-    result = asr({"array": audio, "sampling_rate": sr})
+def transcribe_audio(raw_bytes: bytes) -> str:
+    """Convert mic bytes → WAV PCM → Whisper tiny transcription."""
+    # Load the bytes into pydub (auto-detect format)
+    audio = AudioSegment.from_file(io.BytesIO(raw_bytes))
+    # Convert to numpy array
+    samples = np.array(audio.get_array_of_samples()).astype(np.float32) / (2**15)
+    result = asr({"array": samples, "sampling_rate": audio.frame_rate})
     return result["text"]
 
 
@@ -148,4 +151,5 @@ for role, msg in st.session_state["messages"]:
         st.markdown(f'<div class="chat-bubble-user">You: {msg}</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div class="chat-bubble-assistant">Assistant: {msg}</div>', unsafe_allow_html=True)
+
 
