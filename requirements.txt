@@ -1,5 +1,6 @@
 streamlit==1.26.1
 openai==1.6.0
-gTTS==2.3.2
+streamlit-webrtc==0.43.0
+
 
 
