@@ -9,7 +9,7 @@ import openai
 # --- Config ---
 st.set_page_config(page_title="Subhasya's Voice Assistant", page_icon="🎤", layout="centered")
 
-AVATAR = "avatar.jpg"  # put Subhasya’s image here
+AVATAR = "avatar_gif.jpg" 
 INTRO = (
     "Hello! I am Subhasya’s personal assistant. "
     "You can ask me about her life story, superpower, growth areas, misconceptions, or how she pushes boundaries. "
@@ -101,3 +101,4 @@ if audio:
 
     except Exception as e:
         st.error(f"Error: {e}")
+
