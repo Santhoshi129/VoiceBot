@@ -1,155 +1,61 @@
-# app.py
-import os
-import io
-import numpy as np
-import tempfile
-import streamlit as st
-from gtts import gTTS
-from pydub import AudioSegment
-from streamlit_mic_recorder import mic_recorder
+import gradio as gr
+import torch
 from transformers import pipeline
 
-# --- Config ---
-st.set_page_config(page_title="Subhasya's Voice Assistant", page_icon="🌸", layout="centered")
+# === Speech-to-Text ===
+asr = pipeline("automatic-speech-recognition", model="openai/whisper-small")
 
-AVATAR = "animated_gif.jpg"
-INTRO = (
-    "Hello! I am Subhasya’s personal assistant 🌸. "
-    "Ask me about her life story, superpower, growth areas, misconceptions, "
-    "or how she pushes boundaries. Just click the mic below and start speaking!"
-)
+# === Text-to-Speech ===
+tts = pipeline("text-to-speech", model="espnet/kan-bayashi_ljspeech_vits")
 
-# --- Predefined lively answers ---
-RESPONSES = {
-    "life": "Subhasya’s journey is full of curiosity, learning, and determination. She embraces change and keeps kindness at her core.",
-    "superpower": "Her biggest superpower is empathy — she connects with people and makes them feel truly understood.",
-    "growth": "She wants to grow in leadership, creative problem solving, and emotional intelligence.",
-    "misconception": "People think she’s reserved, but once you know her, she’s warm, lively, and expressive!",
-    "boundary": "She pushes boundaries by taking on challenges that scare her a little, and growing stronger each time.",
-    "default": "That’s a wonderful question! Subhasya is always learning and evolving."
+# === Polished Interview Answers (friendly spoken style) ===
+answers = {
+    "life story": "That’s a great question! I grew up in India with a natural curiosity for technology and creativity. Over the years, I explored different projects that pushed me to learn continuously. Today, I’m passionate about building AI tools that make people’s lives easier and more meaningful.",
+    "superpower": "If I had to pick one, I’d say my superpower is adaptability. I can quickly adjust to new challenges, learn fast, and stay calm under pressure — it’s what keeps me moving forward.",
+    "top 3 areas": "I’d love to keep growing in three areas: expanding my knowledge in advanced AI and emerging technologies, strengthening my problem-solving skills with real-world applications, and refining my ability to collaborate across diverse teams to build impactful solutions.",
+    "misconception": "Some coworkers think I’m a little quiet. But in reality, I’m just reflective — I prefer to listen first, think deeply, and then share thoughtful inputs.",
+    "push limits": "I push my limits by setting ambitious goals, embracing challenges outside my comfort zone, and taking on projects that stretch both my technical skills and my mindset."
 }
 
-# --- Load free Whisper tiny model ---
-@st.cache_resource
-def load_asr():
-    return pipeline("automatic-speech-recognition", model="openai/whisper-tiny.en")
+# === Voicebot Logic ===
+def voicebot(audio):
+    # Convert speech to text
+    text = asr(audio)["text"].lower()
 
-asr = load_asr()
-
-# --- Helpers ---
-def tts_bytes(text: str) -> bytes:
-    """Generate Indian English female voice with gTTS."""
-    tts = gTTS(text, lang="en", tld="co.in")
-    tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
-    tts.save(tmp.name)
-    with open(tmp.name, "rb") as f:
-        data = f.read()
-    os.unlink(tmp.name)
-    return data
-
-
-def transcribe_audio(raw_bytes: bytes) -> str:
-    """Convert mic bytes → WAV PCM → Whisper tiny transcription."""
-    # Load the bytes into pydub (auto-detect format)
-    audio = AudioSegment.from_file(io.BytesIO(raw_bytes))
-    # Convert to numpy array
-    samples = np.array(audio.get_array_of_samples()).astype(np.float32) / (2**15)
-    result = asr({"array": samples, "sampling_rate": audio.frame_rate})
-    return result["text"]
-
-
-def match_response(user_text: str) -> str:
-    """Match question keywords to predefined answers."""
-    text = user_text.lower()
-    for key in RESPONSES.keys():
+    # Match response
+    response = "Thanks for asking! I’m passionate about AI and building tools that make life better."
+    for key in answers:
         if key in text:
-            return RESPONSES[key]
-    return RESPONSES["default"]
+            response = answers[key]
+            break
 
-# --- CSS for chat bubbles ---
-st.markdown("""
-<style>
-.chat-bubble-user {
-    background-color: #DCF8C6;
-    padding: 10px 15px;
-    border-radius: 20px;
-    max-width: 75%;
-    margin: 5px 0;
-    text-align: right;
-    margin-left: auto;
-    box-shadow: 0px 1px 3px rgba(0,0,0,0.1);
-}
-.chat-bubble-assistant {
-    background-color: #F1F0F0;
-    padding: 10px 15px;
-    border-radius: 20px;
-    max-width: 75%;
-    margin: 5px 0;
-    text-align: left;
-    margin-right: auto;
-    box-shadow: 0px 1px 3px rgba(0,0,0,0.1);
-}
-</style>
-""", unsafe_allow_html=True)
+    # Convert to speech
+    speech = tts(response, forward_params={"speaker": "default"})
+    return response, (speech["audio"], speech["sampling_rate"])
 
-# --- Session state for chat history ---
-if "messages" not in st.session_state:
-    st.session_state["messages"] = []
+# === UI with Avatar GIF + Styling ===
+with gr.Blocks(css=".gradio-container {background: linear-gradient(to right, #fefefe, #f2f6f9);} ") as demo:
+    with gr.Row():
+        gr.HTML("""
+        <div style="text-align:center; font-family:Arial;">
+            <img src="subhasya.gif" width="220" style="border-radius:50%; box-shadow:0px 6px 15px rgba(0,0,0,0.25); margin-bottom:10px;">
+            <h1 style="color:#2c3e50;">👋 Hello, Welcome!</h1>
+            <h2 style="color:#34495e;">I am <b>Subhasya</b></h2>
+            <p style="font-size:17px; color:#555; line-height:1.5;">
+                I’m here to chat with you in a natural voice.<br>
+                🎙️ Click the Speak button below and ask me a question.<br>
+                I’m excited to share my story with you!
+            </p>
+        </div>
+        """)
 
-# --- UI Header ---
-col1, col2 = st.columns([1, 2])
-with col1:
-    if os.path.exists(AVATAR):
-        st.image(AVATAR, width=220)
-    else:
-        st.image("https://via.placeholder.com/220.png?text=Subhasya", width=220)
+    with gr.Row():
+        audio_in = gr.Audio(sources=["microphone"], type="filepath", label="🎙️ Speak Here")
 
-with col2:
-    st.title("🌸 Welcome!")
-    st.write("This is **Subhasya’s lively personal assistant**. Ask me anything about her!")
-    st.info(INTRO)
+    with gr.Row():
+        output_text = gr.Textbox(label="💬 Bot Reply", lines=3)
+        output_audio = gr.Audio(label="🔊 Bot Voice", type="numpy")
 
-st.write("---")
-st.subheader("🎤 Start a Conversation")
+    audio_in.change(fn=voicebot, inputs=audio_in, outputs=[output_text, output_audio])
 
-# --- Mic Recorder ---
-audio = mic_recorder(
-    start_prompt="🎙️ Start Recording",
-    stop_prompt="⏹️ Stop",
-    key="recorder"
-)
-
-if audio:
-    wav_data = audio.get("bytes")
-
-    if wav_data:
-        st.audio(wav_data, format="audio/wav")
-
-        try:
-            # 1. Transcribe
-            user_text = transcribe_audio(wav_data)
-            st.session_state["messages"].append(("user", user_text))
-
-            # 2. Match response
-            reply = match_response(user_text)
-            st.session_state["messages"].append(("assistant", reply))
-
-            # 3. Voice reply
-            audio_bytes = tts_bytes(reply)
-            st.audio(audio_bytes, format="audio/mp3")
-
-        except Exception as e:
-            st.error(f"Error during processing: {e}")
-    else:
-        st.warning("No audio captured. Please try again.")
-
-# --- Display Chat History ---
-st.write("---")
-st.subheader("💬 Conversation")
-for role, msg in st.session_state["messages"]:
-    if role == "user":
-        st.markdown(f'<div class="chat-bubble-user">You: {msg}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="chat-bubble-assistant">Assistant: {msg}</div>', unsafe_allow_html=True)
-
-
+demo.launch()
