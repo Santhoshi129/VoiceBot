@@ -1,6 +1,4 @@
-streamlit
-gTTS
-streamlit-mic-recorder
-transformers>=4.30.0
+gradio
+transformers
 torch
-pydub
+soundfile
